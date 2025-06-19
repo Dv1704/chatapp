@@ -1,4 +1,4 @@
-⚡ Distributed Chat App with Redis Pub/Sub (Go + Docker)
+#⚡ Distributed Chat App with Redis Pub/Sub (Go + Docker)
 ![System Architecture](./chatapp.png)
 
 
@@ -84,11 +84,17 @@ wscat -c ws://localhost:8080/ws?username=alice
 This project includes robust tests for real-world scenarios:
 
 ✅ Client-to-client delivery
+
 ✅ Broadcast integrity
+
 ✅ WebSocket lifecycle handling
+
 ✅ Redis downtime resilience
+
 ✅ High-load simulations
+
 ✅ Failure recovery
+
 Run tests using:
 
 go test ./chat-tests/...
@@ -96,10 +102,16 @@ go test ./chat-tests/...
 💼 For Recruiters
 
 ✅ Expert in concurrent system design with Go
+
 ✅ Built and managed scalable WebSocket infrastructures
+
 ✅ Solid experience with Redis as a pub/sub system
+
 ✅ Skilled in Docker-based microservice orchestration
+
 ✅ Delivered robust testing strategies for distributed systems
+
+
 📬 Contact
 
 Email: victorolanikanju@gmail.com
