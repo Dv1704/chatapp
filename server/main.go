@@ -9,6 +9,7 @@ import (
 
 	"github.com/dv1704/chatapp/internal/app/router"
 	"github.com/dv1704/chatapp/internal/websocket"
+	"github.com/redis/go-redis/v9"
 )
 
 func main() {
@@ -16,26 +17,29 @@ func main() {
 	port := flag.String("port", "8080", "Port to run the server on")
 	flag.Parse()
 
-	// Initialize the WebSocket hub
-	hub := websocket.NewHub()
+	// ✅ Initialize Redis client
+	redisClient := redis.NewClient(&redis.Options{
+		Addr: "redis:6379",
+	})
+	if err := redisClient.Ping(context.Background()).Err(); err != nil {
+		log.Fatalf("❌ Redis connection failed: %v", err)
+	}
 
-	// Initialize Redis pub/sub and assign to hub
-	pubsub := websocket.NewRedisPubSub(hub)
-	hub.RedisClient = pubsub.Client
-	hub.RedisContext = context.Background()
-
+	// ✅ Pass redisClient into NewHub
+	hub := websocket.NewHub(*port, redisClient)
 	go hub.Run()
-	go pubsub.Subscribe("Chat-broadcast")
 
-	// Pass both hub and pubsub into router
+	// Redis pub/sub
+	pubsub := websocket.NewRedisPubSub(hub)
+
+	// Register WebSocket routes
 	wsHandler := router.RegisterWebSocketRoutes(hub, pubsub)
 
+	// Start HTTP server
 	addr := fmt.Sprintf(":%s", *port)
 	log.Printf("✅ Server started at port: %s\n", *port)
 
-	// Start HTTP server
-	err := http.ListenAndServe(addr, wsHandler)
-	if err != nil {
+	if err := http.ListenAndServe(addr, wsHandler); err != nil {
 		log.Fatalf("❌ ListenAndServe: %v", err)
 	}
 }

@@ -1,0 +1,249 @@
+
+services:
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    networks:
+      - app-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 2s
+      retries: 5
+
+  server1:
+    build:
+      context: .
+      dockerfile: Dockerfile.server
+    ports:
+      - "8081:8080"
+    environment:
+      - PORT=8080
+      - REDIS_URL=redis:6379
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - app-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  server2:
+    build:
+      context: .
+      dockerfile: Dockerfile.server
+    ports:
+      - "8082:8080"
+    environment:
+      - PORT=8080
+      - REDIS_URL=redis:6379
+    networks:
+      - app-net
+
+  server3:
+    build:
+      context: .
+      dockerfile: Dockerfile.server
+    ports:
+      - "8083:8080"
+    environment:
+      - PORT=8080
+      - REDIS_URL=redis:6379
+    networks:
+      - app-net
+
+  server4:
+    build:
+      context: .
+      dockerfile: Dockerfile.server
+    ports:
+      - "8084:8080"
+    environment:
+      - PORT=8080
+      - REDIS_URL=redis:6379
+    networks:
+      - app-net
+
+  server5:
+    build:
+      context: .
+      dockerfile: Dockerfile.server
+    ports:
+      - "8085:8080"
+    environment:
+      - PORT=8080
+      - REDIS_URL=redis:6379
+    networks:
+      - app-net
+
+  # Test services
+  test_client_to_client:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+    working_dir: /app/chat-tests/1_client_to_client
+    environment:
+      - TEST_NAME=1_client_to_client
+    volumes:
+      - ./chat-tests:/app/chat-tests
+      - ./test-results:/app/test-results
+    depends_on:
+      - server1
+      - server2
+      - server3
+      - server4
+      - server5
+    networks:
+      - app-net
+    command: go run test.go
+
+  test_broadcast:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+    working_dir: /app/chat-tests/2_broadcast
+    environment:
+      - TEST_NAME=2_broadcast
+    volumes:
+      - ./chat-tests:/app/chat-tests
+      - ./test-results:/app/test-results
+    depends_on:
+      - server1
+      - server2
+      - server3
+      - server4
+      - server5
+    networks:
+      - app-net
+    command: go run test.go
+
+  test_websocket_handling:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+    working_dir: /app/chat-tests/3_websocket_handling
+    environment:
+      - TEST_NAME=3_websocket_handling
+    volumes:
+      - ./chat-tests:/app/chat-tests
+      - ./test-results:/app/test-results
+    depends_on:
+      - server1
+      - server2
+      - server3
+      - server4
+      - server5
+    networks:
+      - app-net
+    command: go run test.go
+
+  test_pubsub_reliability:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+    working_dir: /app/chat-tests/4_pubsub_reliability
+    environment:
+      - TEST_NAME=4_pubsub_reliability
+    volumes:
+      - ./chat-tests:/app/chat-tests
+      - ./test-results:/app/test-results
+    depends_on:
+      - server1
+      - server2
+      - server3
+      - server4
+      - server5
+    networks:
+      - app-net
+    command: go run test.go
+
+  test_multi_client:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+    working_dir: /app/chat-tests/5_multi_client
+    environment:
+      - TEST_NAME=5_multi_client
+    volumes:
+      - ./chat-tests:/app/chat-tests
+      - ./test-results:/app/test-results
+    depends_on:
+      - server1
+      - server2
+      - server3
+      - server4
+      - server5
+    networks:
+      - app-net
+    command: go run test.go
+
+  test_server_failure:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+    working_dir: /app/chat-tests/6_server_failure
+    environment:
+      - TEST_NAME=6_server_failure
+    volumes:
+      - ./chat-tests:/app/chat-tests
+      - ./test-results:/app/test-results
+    depends_on:
+      - server1
+      - server2
+      - server3
+      - server4
+      - server5
+    networks:
+      - app-net
+    command: go run test.go
+
+  test_high_load:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+    working_dir: /app/chat-tests/7_high_load
+    environment:
+      - TEST_NAME=7_high_load
+    volumes:
+      - ./chat-tests:/app/chat-tests
+      - ./test-results:/app/test-results
+    depends_on:
+      - server1
+      - server2
+      - server3
+      - server4
+      - server5
+    networks:
+      - app-net
+    command: go run test.go
+
+  test_redis_downtime:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+    working_dir: /app/chat-tests/8_redis_downtime
+    environment:
+      - TEST_NAME=8_redis_downtime
+    volumes:
+      - ./chat-tests:/app/chat-tests
+      - ./test-results:/app/test-results
+    depends_on:
+      - redis
+      - server1
+      - server2
+      - server3
+      - server4
+      - server5
+    networks:
+      - app-net
+    command: go run test.go
+
+networks:
+  app-net:
+    driver: bridge
+
+volumes:
+  test-results:

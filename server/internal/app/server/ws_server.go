@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"time"
 
-	ws "github.com/dv1704/chatapp/internal/websocket"
+	ws"github.com/dv1704/chatapp/internal/websocket"
 	"github.com/gorilla/websocket"
 )
 

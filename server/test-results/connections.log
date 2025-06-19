@@ -1,0 +1,4 @@
+User: user002, Server: server1, Success: true, Duration: 2.161789ms, Error: , Reconnect: false
+User: user003, Server: server1, Success: true, Duration: 2.407656ms, Error: , Reconnect: false
+User: user001, Server: server1, Success: true, Duration: 2.135798ms, Error: , Reconnect: false
+User: user_reconnect, Server: server2, Success: true, Duration: 2.033259ms, Error: , Reconnect: true

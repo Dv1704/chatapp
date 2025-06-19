@@ -1,16 +1,15 @@
 package websocket
 
 import (
+	"context"
 	"encoding/json"
 	"log"
-
-	"context"
 
 	"github.com/gorilla/websocket"
 	"github.com/redis/go-redis/v9"
 )
 
-// DirectMessage struct to encapsulate private message details
+// DirectMessage represents a message from one client to another
 type DirectMessage struct {
 	To      string
 	From    string
@@ -24,12 +23,14 @@ type Hub struct {
 	Broadcast     chan []byte
 	DirectMessage chan DirectMessage
 	MaxClients    int
-	RedisClient *redis.Client
+
+	RedisClient  *redis.Client
 	RedisContext context.Context
+	Port         string
 }
 
-// NewHub initializes and returns a new Hub instance.
-func NewHub() *Hub {
+// NewHub initializes a new Hub with required defaults
+func NewHub(port string, redisClient *redis.Client) *Hub {
 	return &Hub{
 		Register:      make(chan *Client),
 		Unregister:    make(chan *Client),
@@ -37,8 +38,9 @@ func NewHub() *Hub {
 		Broadcast:     make(chan []byte),
 		DirectMessage: make(chan DirectMessage),
 		MaxClients:    100,
-		RedisClient:  nil,
-		RedisContext: nil, // Initialize context to nil as well
+		Port:          port,
+		RedisClient:   redisClient,
+		RedisContext:  context.Background(),
 	}
 }
 
@@ -47,60 +49,56 @@ func (h *Hub) Run() {
 		select {
 		case client := <-h.Register:
 			if len(h.Clients) >= h.MaxClients {
-				client.Conn.WriteMessage(websocket.TextMessage, []byte("Server is full. Try again later."))
+				client.Conn.WriteMessage(websocket.TextMessage, []byte("❌ Server is full. Try again later."))
 				client.Conn.Close()
 				continue
 			}
 			h.Clients[client.Username] = client
-			log.Printf("Client %s registered. Total clients: %d", client.Username, len(h.Clients))
+			log.Printf("✅ Registered: %s | Clients: %d", client.Username, len(h.Clients))
 			h.broadcastUserList()
 
 		case client := <-h.Unregister:
 			if _, ok := h.Clients[client.Username]; ok {
 				delete(h.Clients, client.Username)
 				close(client.Send)
-				log.Printf("Client %s unregistered. Total clients: %d", client.Username, len(h.Clients))
+				log.Printf("❌ Unregistered: %s | Clients: %d", client.Username, len(h.Clients))
 				h.broadcastUserList()
 			}
 
 		case message := <-h.Broadcast:
-			// This channel is for messages that should be broadcasted to all local clients.
-			// If Redis is configured, broadcast messages might also originate from Redis.
 			for _, client := range h.Clients {
 				select {
 				case client.Send <- message:
 				default:
-					log.Printf("Client %s send channel blocked, closing connection.", client.Username)
+					log.Printf("⚠️ Broadcast failed, closing: %s", client.Username)
 					close(client.Send)
 					delete(h.Clients, client.Username)
 				}
 			}
 
 		case dm := <-h.DirectMessage:
-			// Handle direct messages
 			if client, ok := h.Clients[dm.To]; ok {
 				msg := Message{
 					Type:    "direct",
 					From:    dm.From,
 					To:      dm.To,
-					Content: string(dm.Content), // Convert []byte back to string for JSON
+					Content: string(dm.Content),
 				}
 				msgBytes, err := json.Marshal(msg)
 				if err != nil {
-					log.Printf("Error marshalling direct message for %s: %v", dm.To, err)
+					log.Printf("❌ Marshal error for direct message to %s: %v", dm.To, err)
 					continue
 				}
 				select {
 				case client.Send <- msgBytes:
-					log.Printf("Direct message sent from %s to %s", dm.From, dm.To)
+					log.Printf("📤 Direct message: %s ➝ %s", dm.From, dm.To)
 				default:
-					log.Printf("Client %s direct message send channel blocked, closing connection.", client.Username)
+					log.Printf("⚠️ Direct message send failed, closing: %s", client.Username)
 					close(client.Send)
 					delete(h.Clients, client.Username)
 				}
 			} else {
-				log.Printf("Recipient %s not found for direct message from %s", dm.To, dm.From)
-				// Optionally, send an error message back to dm.From
+				log.Printf("🚫 Direct message target not found: %s (from %s)", dm.To, dm.From)
 			}
 		}
 	}
@@ -118,7 +116,7 @@ func (h *Hub) broadcastUserList() {
 	}
 	msgBytes, err := json.Marshal(msg)
 	if err != nil {
-		log.Printf("Error marshalling user list: %v", err)
+		log.Printf("❌ Error marshalling user list: %v", err)
 		return
 	}
 
@@ -126,7 +124,7 @@ func (h *Hub) broadcastUserList() {
 		select {
 		case client.Send <- msgBytes:
 		default:
-			log.Printf("Client %s user list send channel blocked, closing connection.", client.Username)
+			log.Printf("⚠️ Failed to send user list to %s, closing...", client.Username)
 			close(client.Send)
 			delete(h.Clients, client.Username)
 		}

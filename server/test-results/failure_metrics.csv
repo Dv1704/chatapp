@@ -1,0 +1,16 @@
+timestamp,failed_server,active_clients,messages_lost,recovery_time_ms,service_degrade_percent,state
+2025-06-19T09:57:14Z,server2,0,0,0,0.0,failure-detected
+2025-06-19T09:57:14Z,server3,0,0,0,0.0,failure-detected
+2025-06-19T09:57:14Z,,2,0,0,0.0,initial
+2025-06-19T09:57:29Z,server1,0,0,0,0.0,failure-detected
+2025-06-19T09:57:29Z,server4,0,0,0,0.0,failure-detected
+2025-06-19T09:57:29Z,server5,0,0,0,0.0,failure-detected
+2025-06-19T09:57:29Z,server3,3,0,0,0.0,pre-failure
+2025-06-19T09:57:34Z,server3,3,0,0,0.0,failure
+2025-06-19T09:57:39Z,server3,3,0,0,15.0,failure
+2025-06-19T09:57:44Z,server3,3,0,0,30.0,failure
+2025-06-19T09:57:49Z,server3,3,0,0,45.0,failure
+2025-06-19T09:57:54Z,server3,3,0,0,60.0,failure
+2025-06-19T09:57:59Z,server3,3,0,0,75.0,failure
+2025-06-19T09:57:59Z,server3,3,0,0,100.0,recovery-start
+2025-06-19T09:58:04Z,server3,3,0,35022,0.0,recovery-complete

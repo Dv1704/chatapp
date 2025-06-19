@@ -31,7 +31,6 @@ func (c *Client) ReadPump(hub *Hub) {
 		log.Printf("🔌 Client %s disconnected and cleaned up", c.Username)
 	}()
 
-	// Set read limits and pong handler
 	c.Conn.SetReadLimit(512)
 	c.Conn.SetReadDeadline(time.Now().Add(5 * time.Minute))
 	c.Conn.SetPongHandler(func(string) error {
@@ -39,7 +38,7 @@ func (c *Client) ReadPump(hub *Hub) {
 		return nil
 	})
 
-	// Rate limiter reset ticker
+	// Start ticker for rate limit reset
 	if c.LimitReset == nil {
 		c.LimitReset = time.NewTicker(1 * time.Minute)
 	}
@@ -62,7 +61,9 @@ func (c *Client) ReadPump(hub *Hub) {
 
 		// Rate limiting
 		if c.MessageCount >= 10 {
-			c.Send <- []byte("⚠️ Rate limit exceeded. Please slow down.")
+			warn := Message{Type: "error", Content: "⚠️ Rate limit exceeded. Please slow down."}
+			jsonWarn, _ := json.Marshal(warn)
+			c.Send <- jsonWarn
 			continue
 		}
 		c.MessageCount++
@@ -70,29 +71,36 @@ func (c *Client) ReadPump(hub *Hub) {
 		var msg Message
 		if err := json.Unmarshal(msgBytes, &msg); err != nil {
 			log.Println("❌ Invalid message format:", err)
-			c.Send <- []byte("❌ Error: Invalid message format.")
+			errMsg := Message{Type: "error", Content: "❌ Error: Invalid message format."}
+			jsonErr, _ := json.Marshal(errMsg)
+			c.Send <- jsonErr
 			continue
 		}
 
+		// Set sender username
 		msg.From = c.Username
 
+		// Ensure content is a string
 		contentStr, ok := msg.Content.(string)
 		if !ok {
-			c.Send <- []byte("❌ Error: Message content must be a string.")
+			errMsg := Message{Type: "error", Content: "❌ Error: Message content must be a string."}
+			jsonErr, _ := json.Marshal(errMsg)
+			c.Send <- jsonErr
 			continue
 		}
 		msg.Content = contentStr
+		msg.Type = "chat"
 
 		log.Printf("💬 Message from %s to %s: %s", msg.From, msg.To, contentStr)
 
-		if msg.To == "" {
-			// Broadcast to all users via Redis or fallback
-			jsonMsg, err := json.Marshal(msg)
-			if err != nil {
-				log.Println("❌ Error marshalling message:", err)
-				continue
-			}
+		jsonMsg, err := json.Marshal(msg)
+		if err != nil {
+			log.Println("❌ Error marshalling message:", err)
+			continue
+		}
 
+		if msg.To == "" {
+			// Broadcast to all users
 			if hub.RedisClient != nil && hub.RedisContext != nil {
 				err := hub.RedisClient.Publish(hub.RedisContext, RedisChannel, jsonMsg).Err()
 				if err != nil {
@@ -105,16 +113,19 @@ func (c *Client) ReadPump(hub *Hub) {
 				hub.Broadcast <- jsonMsg
 			}
 		} else {
+			// Direct message
 			hub.DirectMessage <- DirectMessage{
 				To:      msg.To,
 				From:    msg.From,
-				Content: []byte(contentStr),
+				Content: jsonMsg, // ✅ send JSON-formatted message
 			}
 		}
 	}
+	log.Printf("[Server %s] New client: %s", c.Hub.Port, c.Username)
+
 }
 
-// WritePump writes messages to the WebSocket connection
+// WritePump sends messages from the server to the WebSocket client
 func (c *Client) WritePump() {
 	defer func() {
 		c.Conn.Close()
@@ -139,7 +150,6 @@ func (c *Client) WritePump() {
 			}
 
 		case <-ticker.C:
-			// Send ping to keep connection alive
 			c.Conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
 			if err := c.Conn.WriteMessage(websocket.PingMessage, nil); err != nil {
 				log.Printf("❌ Ping failed for %s: %v", c.Username, err)
