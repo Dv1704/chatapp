@@ -1,4 +1,4 @@
-#⚡ Distributed Chat App with Redis Pub/Sub (Go + Docker)
+```⚡Distributed Chat App with Redis Pub/Sub (Go + Docker)```
 ![System Architecture](./chatapp.png)
 
 
